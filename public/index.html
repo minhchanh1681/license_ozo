@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>License Management</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+  <meta property="og:title" content="License">
+
+  <meta property="og:image" content="./404.png">
+
+  <link rel="icon" href="./logo.png" type="image/x-icon" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    .copy-icon {
+      display: none;
+      cursor: pointer;
+      font-size: 1.2rem;
+      color: #cfd9df;
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+    }
+
+    .copy-container {
+      position: relative;
+    }
+
+    .copy-container:hover .copy-icon {
+      display: inline;
+    }
+
+    .alert-message {
+      display: none;
+    }
+
+    .scroll-to-top {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: none;
+      z-index: 100;
+      padding: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container mt-4">
+    <h1 class="lh-lg">License Management</h1>
+    <a href="form_license.html" class="btn btn-primary mb-3">Add License</a>
+    <div class="form-group">
+      <label for="searchInput">Search by Name:</label>
+      <input type="text" id="searchInput" class="form-control" placeholder="Enter name to search">
+    </div>
+    <div id="alertMessage" class="alert alert-danger d-none" role="alert">
+      No results found.
+    </div>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>
+            Name
+            <button id="sortAsc" class="btn btn-link btn-sm">↑</button>
+            <button id="sortDesc" class="btn btn-link btn-sm">↓</button>
+          </th>
+          <th>RegKey</th>
+          <th>RegNo</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="licenseTable"></tbody>
+    </table>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toastSuccess" role="alert" aria-live="assertive" aria-atomic="true"
+    style="position: fixed; top: 20px; right: 20px; background-color: #159957;width: 500px;">
+    <div class="toast-header">
+      <strong class="mr-auto">Success</strong>
+      <small>Just now</small>
+      <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="toast-body" style="color: #fff;">
+      Copied to clipboard!
+    </div>
+  </div>
+  <button class="btn btn-dark scroll-to-top" id="scrollToTopBtn">
+    <i class="fas fa-arrow-up"></i>
+  </button>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCJzYg9usyq0l3yEYhTM5FZk2Delws2Xpk",
+      authDomain: "mcozo-58e1f.firebaseapp.com",
+      projectId: "mcozo-58e1f",
+      storageBucket: "mcozo-58e1f.appspot.com",
+      messagingSenderId: "1007554289865",
+      appId: "1:1007554289865:web:cc2b31138fd42cae3aad18",
+      measurementId: "G-RSJ2M38M8C"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadLicenses();
+
+      // Bind search input event
+      $('#searchInput').on('input', function () {
+        const searchTerm = $(this).val().toLowerCase();
+        filterTable(searchTerm);
+      });
+
+      // Bind sort buttons
+      $('#sortAsc').on('click', () => sortTable('asc'));
+      $('#sortDesc').on('click', () => sortTable('desc'));
+
+      // Bind copy icons
+      $(document).on('click', '.copy-icon', function () {
+        const textToCopy = $(this).siblings('.copy-text').text();
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          $('#toastSuccess').toast('show'); // Show toast notification
+        }).catch(err => {
+          console.error('Error copying text: ', err);
+        });
+      });
+    });
+
+    let licensesData = []; // Store licenses data
+
+    async function loadLicenses() {
+      const tbody = document.querySelector('#licenseTable');
+      tbody.innerHTML = '';
+      try {
+        const querySnapshot = await getDocs(collection(db, 'licenses'));
+        licensesData = []; // Reset licensesData
+
+        querySnapshot.forEach(doc => {
+          const license = doc.data();
+          licensesData.push({
+            id: doc.id,
+            name: license.nameLicense,
+            regKey: license.RegKey,
+            regNo: license.RegNo
+          });
+        });
+
+        renderTable(licensesData); // Render table initially
+      } catch (error) {
+        console.error("Error loading licenses: ", error);
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.querySelector('#licenseTable');
+      tbody.innerHTML = '';
+      data.forEach(license => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+                    <td>${license.name}</td>
+                    <td class="copy-container">
+                        <span class="copy-text">${license.regKey}</span>
+                        <i class="fas fa-copy copy-icon" title="Copy to clipboard"></i>
+                    </td>
+                    <td class="copy-container">
+                        <span class="copy-text">${license.regNo}</span>
+                        <i class="fas fa-copy copy-icon" title="Copy to clipboard"></i>
+                    </td>
+                    <td>
+                        
+                        <a href="form_license.html?id=${license.id}" class="btn btn-warning btn-sm">Edit</a>
+                        <button class="btn btn-danger btn-sm" onclick="deleteLicense('${license.id}')">Delete</button>
+                    </td>
+                `;
+        tbody.appendChild(row);
+      });
+
+      // Hide or show table header based on data presence
+      if (data.length > 0) {
+        $('thead').show();
+      } else {
+        $('thead').hide();
+      }
+    }
+
+    function filterTable(searchTerm) {
+      let hasResults = false;
+
+      $('#licenseTable tr').each(function () {
+        const rowName = $(this).find('td:first').text().toLowerCase();
+        if (rowName.indexOf(searchTerm) > -1) {
+          $(this).show();
+          hasResults = true;
+        } else {
+          $(this).hide();
+        }
+      });
+
+      // Show or hide alert message and table header based on search results
+      if (hasResults) {
+        $('#alertMessage').addClass('d-none');
+        $('thead').show();
+      } else {
+        $('#alertMessage').removeClass('d-none');
+        $('thead').hide();
+      }
+    }
+
+    function sortTable(order) {
+      const sortedData = [...licensesData].sort((a, b) => {
+        if (order === 'asc') {
+          return a.name.localeCompare(b.name);
+        } else {
+          return b.name.localeCompare(a.name);
+        }
+      });
+      renderTable(sortedData);
+    }
+
+    window.deleteLicense = async function (id) {
+      if (confirm('Are you sure you want to delete this license?')) {
+        try {
+          await deleteDoc(doc(db, 'licenses', id));
+          $('#successMessage').text('License deleted successfully');
+          $('#successModal').modal('show');
+          loadLicenses(); // Reload licenses after deletion
+        } catch (error) {
+          $('#errorMessage').text('Error deleting license: ' + error.message);
+          $('#errorModal').modal('show');
+        }
+      }
+    }
+    $(window).scroll(function () {
+      if ($(this).scrollTop() > 200) {
+        $('#scrollToTopBtn').fadeIn();
+      } else {
+        $('#scrollToTopBtn').fadeOut();
+      }
+    });
+
+    // Scroll to top when the button is clicked
+    $('#scrollToTopBtn').click(function () {
+      $('html, body').animate({ scrollTop: 0 }, '300');
+      return false;
+    });
+  </script>
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
